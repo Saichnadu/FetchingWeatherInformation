@@ -1,0 +1,79 @@
+const express = require("express");
+const { initializeApp, credential } = require("firebase-admin/app");
+const { getFirestore, collection, query, where, add } = require("firebase-admin/firestore");
+const ejs = require("ejs");
+
+const app = express();
+const port = 7070;
+
+// Firebase Admin initialization
+const serviceAccount = require("./key.json");
+const firebaseApp = initializeApp({
+  credential: credential.cert(serviceAccount),
+});
+
+// Firestore initialization
+const db = getFirestore(firebaseApp);
+
+// Set the view engine to EJS
+app.set("view engine", "ejs");
+
+// Middleware to parse JSON and URL-encoded request bodies
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Routes
+
+// Render the sign-in page
+app.get("/signin", (req, res) => {
+  res.render("signin");
+});
+
+// Handle sign-in submission
+app.get("/signinsubmit", async (req, res) => {
+  const { email, password } = req.query;
+
+  try {
+    const userQuery = query(collection(db, "users"), where("email", "==", email), where("password", "==", password));
+    const querySnapshot = await getDocs(userQuery);
+
+    if (!querySnapshot.empty) {
+      res.render("web");
+    } else {
+      res.send("<h1>Login failed, incorrect login credentials</h1>");
+    }
+  } catch (error) {
+    console.error("Error signing in:", error);
+    res.status(500).send("Internal Server Error");
+  }
+});
+
+// Handle sign-up submission
+app.post("/signupsubmit", async (req, res) => {
+  const { firstname, lastname, email, password } = req.body;
+
+  try {
+    const usersCollection = collection(db, "users");
+    await add(usersCollection, { email, password });
+
+    res.render("signin");
+  } catch (error) {
+    console.error("Error signing up:", error);
+    res.status(500).send("Internal Server Error");
+  }
+});
+
+// Render the sign-up page
+app.get("/", (req, res) => {
+  res.render("signup");
+});
+
+// Render the web page
+app.get("/web", (req, res) => {
+  res.render("web");
+});
+
+// Start the Express server
+app.listen(port, () => {
+  console.log(`Example app listening on port ${port}`);
+});
